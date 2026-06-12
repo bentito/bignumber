@@ -1,0 +1,70 @@
+{
+  "items": [
+    {
+      "name": "Big Number Display",
+      "priority": 50,
+      "items": [
+        {
+          "name": "Show 0",
+          "action": "./show_number.sh",
+          "params": "0",
+          "exitmenu": false
+        },
+        {
+          "name": "Show 1",
+          "action": "./show_number.sh",
+          "params": "1",
+          "exitmenu": false
+        },
+        {
+          "name": "Show 2",
+          "action": "./show_number.sh",
+          "params": "2",
+          "exitmenu": false
+        },
+        {
+          "name": "Show 3",
+          "action": "./show_number.sh",
+          "params": "3",
+          "exitmenu": false
+        },
+        {
+          "name": "Show 4",
+          "action": "./show_number.sh",
+          "params": "4",
+          "exitmenu": false
+        },
+        {
+          "name": "Show 5",
+          "action": "./show_number.sh",
+          "params": "5",
+          "exitmenu": false
+        },
+        {
+          "name": "Show 6",
+          "action": "./show_number.sh",
+          "params": "6",
+          "exitmenu": false
+        },
+        {
+          "name": "Show 7",
+          "action": "./show_number.sh",
+          "params": "7",
+          "exitmenu": false
+        },
+        {
+          "name": "Show 8",
+          "action": "./show_number.sh",
+          "params": "8",
+          "exitmenu": false
+        },
+        {
+          "name": "Show 9",
+          "action": "./show_number.sh",
+          "params": "9",
+          "exitmenu": false
+        }
+      ]
+    }
+  ]
+}

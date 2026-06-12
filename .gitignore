@@ -1,0 +1,12 @@
+# Python Virtual Environment
+.venv/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
