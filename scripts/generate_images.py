@@ -45,8 +45,9 @@ def main():
         img = Image.new("L", (width, height), color=255)
         draw = ImageDraw.Draw(img)
         
-        # Find the maximum font size that fits within the boundaries
-        font_size = 700
+        # Find the maximum font size that fits within the boundaries (600x800 screen)
+        # Margin is 10px on all sides, meaning max width is 580 and max height is 780
+        font_size = 1200
         font = None
         while font_size > 50:
             font = ImageFont.truetype(font_path, font_size)
@@ -54,10 +55,10 @@ def main():
             left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
             w = right - left
             h = bottom - top
-            # Check if fits within 500x700 area (leaving 50px margins)
-            if w <= 500 and h <= 700:
+            # Check if fits within 580x780 area (leaving 10px margins)
+            if w <= 580 and h <= 780:
                 break
-            font_size -= 10
+            font_size -= 5
             
         # Draw the text perfectly centered
         left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
