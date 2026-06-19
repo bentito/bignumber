@@ -7,62 +7,52 @@
         {
           "name": "Show 0",
           "action": "./show_number.sh",
-          "params": "0",
-          "exitmenu": false
+          "params": "0"
         },
         {
           "name": "Show 1",
           "action": "./show_number.sh",
-          "params": "1",
-          "exitmenu": false
+          "params": "1"
         },
         {
           "name": "Show 2",
           "action": "./show_number.sh",
-          "params": "2",
-          "exitmenu": false
+          "params": "2"
         },
         {
           "name": "Show 3",
           "action": "./show_number.sh",
-          "params": "3",
-          "exitmenu": false
+          "params": "3"
         },
         {
           "name": "Show 4",
           "action": "./show_number.sh",
-          "params": "4",
-          "exitmenu": false
+          "params": "4"
         },
         {
           "name": "Show 5",
           "action": "./show_number.sh",
-          "params": "5",
-          "exitmenu": false
+          "params": "5"
         },
         {
           "name": "Show 6",
           "action": "./show_number.sh",
-          "params": "6",
-          "exitmenu": false
+          "params": "6"
         },
         {
           "name": "Show 7",
           "action": "./show_number.sh",
-          "params": "7",
-          "exitmenu": false
+          "params": "7"
         },
         {
           "name": "Show 8",
           "action": "./show_number.sh",
-          "params": "8",
-          "exitmenu": false
+          "params": "8"
         },
         {
           "name": "Show 9",
           "action": "./show_number.sh",
-          "params": "9",
-          "exitmenu": false
+          "params": "9"
         }
       ]
     }

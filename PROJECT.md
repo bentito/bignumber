@@ -38,15 +38,23 @@ The deployment loop relies on a simple Makefile to safely transfer files to the 
 *   **Safety & Build System:** Created a Makefile to set up the Python venv, generate images, perform Windows CRLF syntax checks, verify Kindle USB mount point activity, enforce executable permissions, and safely sync via rsync.
 *   **Integration:** Provided KUAL metadata mapping inside `config.xml` and organized the menu UI inside `menu.json` using a clean nested sub-menu.
 
-### Step 2: Interactive Number Manipulation (Increment/Decrement Loop)
-**Goal:** Enable changing the displayed fullscreen number dynamically using physical buttons without returning to the KUAL menu.
+### Step 2: Network-Driven ScoreKeeper Control [Completed]
+**Goal:** Establish a network listener on the Kindle to allow a command-line Python TUI (the "ScoreKeeper" app placeholder) running on a workstation to remotely control the displayed big number over the network.
+
+**Implementation Details:**
+*   **Embedded Static Server:** Packaged a pre-compiled ARMv7l static Linux BusyBox binary (`bin/busybox`) containing both full netcat listen (`CONFIG_NC_SERVER=yes`) and HTTPD server (`CONFIG_HTTPD=yes`) directly inside our extension directory. This bypasses all stock Kindle BusyBox limitations and removes any jailbreak-specific dependencies.
+*   **Zero-Loop CGI Architecture:** Redesigned the background listener into a loop-free `busybox httpd` web server daemon listening on port 5000. It routes requests to a CGI script (`www/cgi-bin/cmd.sh`), executing instantly and exiting with a 0% idle CPU footprint, completely eliminating watchdog crash reboots.
+*   **Firewall Hole-Punching:** Resolved Wi-Fi packet drops by adding temporary absolute-path firewall rules (`/usr/sbin/iptables -I INPUT 1`) for ICMP and port 5000 upon app launch, securely closing them on exit.
+*   **Python ScoreKeeper TUI:** Created `scripts/scorekeeper.py` with an interactive, colored console scoreboard. It uses Python's native `urllib.request` to send stateless HTTP requests, maintaining perfect score synchronization. Added a custom regex `pad_colored()` padding function to ignore hidden ANSI codes and perfectly align borders.
+*   **Hardened Build & Recovery:** Updated `Makefile` with automatic `dot_clean -m` metadata scrubbers on deployment to completely block macOS AppleDouble file corruption, and added a deep `make full-reset` emergency target to restore the launcher from Downloads and clean RAM caches.
+
+### Step 2.a: Automated Device Discovery (Pending)
+**Goal:** Implement an automatic discovery mechanism (e.g., UDP multicast/SSDP beacons or subnet sweeps) so the workstation ScoreKeeper TUI can automatically locate the Kindle's IP address without requiring manual entry.
 
 **Requirements:**
-*   Read which physical key is pressed on the Kindle 4 (such as D-Pad Up, Down, Left, Right, or Page Turn keys).
-*   Increment the displayed number (0 to 9, wrapping around) when D-Pad Up / Right or Page Next is pressed.
-*   Decrement the displayed number when D-Pad Down / Left or Page Prev is pressed.
-*   Refresh and render the new number's full-screen image cleanly with minimal latency.
-*   Provide a dedicated button (like the Back button or Home button) to cleanly break out of the loop and gracefully restore the system display and power states.
+*   **Kindle Beacon:** Modify the Kindle network listener daemon to periodically broadcast a UDP beacon packet (e.g., on port 5001) containing its device ID and IP address when active.
+*   **Workstation Auto-Discovery:** Update the Python ScoreKeeper TUI to listen for these UDP beacons at startup, automatically extracting and connecting to the Kindle's active IP address.
+*   **Graceful Fallback:** Fall back to manual IP entry or the standard fallback USB network IPs if no beacons are detected within 5 seconds.
 
-### Step 3: [Pending]
-*To be defined once interactive control loop is successfully achieved and validated.*
+### Step 3: Interactive Physical Control Backup (Pending)
+*To be defined: Creating an on-device physical button control loop as a backup interface when network access is unavailable.*
