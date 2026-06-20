@@ -6,6 +6,8 @@ import termios
 import tty
 import re
 import urllib.request
+import threading
+import time
 
 DEFAULT_KINDLE_IPS = ["192.168.15.244", "192.168.2.2"]
 PORT = 5000
@@ -169,27 +171,107 @@ def draw_tui(score, ip, last_status):
     print(f"{CLR_CYAN}└──────────────────────────────────────────────────────────┘{CLR_RESET}")
     print(f"{CLR_DIM}Waiting for scorekeeper action...{CLR_RESET}")
 
+def discover_via_subnet_sweep():
+    """Sweeps the local /24 subnet concurrently on port 5000 to find the Kindle.
+    Highly robust: bypasses Wi-Fi AP isolation and cross-band UDP packet drops."""
+    # 1. Resolve local active interface IP
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        return None
+        
+    prefix = '.'.join(local_ip.split('.')[:3]) + '.'
+    print(f"{CLR_CYAN}[SWEEPING]{CLR_WHITE} Scanning local subnet {prefix}1-254 on port {PORT}...{CLR_RESET}")
+    
+    results = []
+    def check_ip(ip):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.5) # Increased to 0.5s for slow legacy Kindle 2.4G Wi-Fi
+            s.connect((ip, PORT))
+            s.close()
+            results.append(ip)
+        except Exception:
+            pass
+            
+    threads = []
+    for i in range(1, 255):
+        ip = prefix + str(i)
+        if ip == local_ip:
+            continue
+        t = threading.Thread(target=check_ip, args=(ip,))
+        t.start()
+        threads.append(t)
+        
+    # Wait for all sweeps to complete naturally in parallel
+    for t in threads:
+        t.join()
+        
+    return results[0] if results else None
+
 def main():
-    # Resolve Kindle IP: arg, then standard fallback list
+    # Resolve Kindle IP: arg, then try automatic UDP discovery, then try subnet sweep, then fallback
     target_ip = None
-    if len(sys.argv) > 1:
+    
+    if len(sys.argv) > 1 and sys.argv[1]:
         target_ip = sys.argv[1]
     else:
-        # Prompt or check for active connections
-        for ip in DEFAULT_KINDLE_IPS:
-            # Quick raw socket check to see if port 5000 is open
+        # Reduce UDP wait to 2 seconds to make the transition to subnet sweep snappy
+        print(f"{CLR_CYAN}[SEARCHING]{CLR_WHITE} Listening for Kindle UDP beacons on port 5001 (2s timeout)...{CLR_RESET}")
+        try:
+            # Set up UDP socket to listen for discovery beacons
+            udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            udp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            udp_sock.bind(('', 5001))
+            udp_sock.settimeout(2.0) # snappy timeout
+            
+            data, addr = udp_sock.recvfrom(1024)
+            if b"KINDLE_BIGNUM_BEACON" in data:
+                target_ip = addr[0]
+                print(f"{CLR_GREEN}[DISCOVERED]{CLR_WHITE} Found Kindle via UDP Beacon: {CLR_BOLD}{CLR_YELLOW}{target_ip}{CLR_RESET}")
+                time.sleep(1.0)
+            udp_sock.close()
+        except socket.timeout:
+            # UDP timed out (likely Wi-Fi AP isolation or cross-band drop on the Starlink).
+            # Fall back to our 100% bulletproof high-speed unicast subnet sweep!
+            target_ip = discover_via_subnet_sweep()
+            if target_ip:
+                print(f"{CLR_GREEN}[DISCOVERED]{CLR_WHITE} Found Kindle via Subnet Scan: {CLR_BOLD}{CLR_YELLOW}{target_ip}{CLR_RESET}")
+                time.sleep(1.0)
+            else:
+                print(f"{CLR_YELLOW}[TIMEOUT]{CLR_WHITE} No Kindle discovered on the local network.{CLR_RESET}")
+        except Exception as e:
+            print(f"{CLR_RED}[ERROR]{CLR_WHITE} Discovery error: {e}{CLR_RESET}")
+            
+        if not target_ip:
+            # Let the user manually type the IP address so they don't have to restart the app
+            print(f"{CLR_CYAN}──────────────────────────────────────────────────────────{CLR_RESET}")
             try:
-                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.settimeout(0.2)
-                s.connect((ip, PORT))
-                s.close()
-                target_ip = ip
-                break
-            except Exception:
-                continue
+                user_ip = input(f"{CLR_BOLD}{CLR_WHITE}Enter Kindle IP (or press Enter for default {DEFAULT_KINDLE_IPS[0]}): {CLR_RESET}").strip()
+                if user_ip:
+                    target_ip = user_ip
+            except (KeyboardInterrupt, EOFError):
+                print("\nExiting.")
+                sys.exit(0)
+                
+        if not target_ip:
+            # Fallback scan list
+            for ip in DEFAULT_KINDLE_IPS:
+                try:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(0.2)
+                    s.connect((ip, PORT))
+                    s.close()
+                    target_ip = ip
+                    break
+                except Exception:
+                    continue
                 
     if not target_ip:
-        # Fallback to standard USB-network default if none are reachable
+        # Ultimate fallback to standard USB-network default if none are reachable
         target_ip = DEFAULT_KINDLE_IPS[0]
         
     score = 0

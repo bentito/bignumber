@@ -50,6 +50,10 @@ log_screen "[DEBUG] Screensaver disabled successfully."
 # Display local network IPs for convenience
 WLAN_IP=$(ifconfig wlan0 2>/dev/null | grep "inet addr" | awk '{print $2}' | cut -d: -f2)
 USB_IP=$(ifconfig usb0 2>/dev/null | grep "inet addr" | awk '{print $2}' | cut -d: -f2)
+WLAN_BCAST=$(ifconfig wlan0 2>/dev/null | grep "Bcast" | awk '{print $3}' | cut -d: -f2)
+[ -z "$WLAN_BCAST" ] && WLAN_BCAST="255.255.255.255"
+USB_BCAST=$(ifconfig usb0 2>/dev/null | grep "Bcast" | awk '{print $3}' | cut -d: -f2)
+[ -z "$USB_BCAST" ] && USB_BCAST="192.168.15.255"
 
 if [ -n "$WLAN_IP" ]; then
     log_screen "[DEBUG] Wi-Fi IP : $WLAN_IP"
@@ -105,16 +109,73 @@ fi
 
 # Start busybox httpd as a background daemon listening on port 5000
 log_screen "[DEBUG] Starting HTTPD server on port 5000..."
-# Clean up any previously hung httpd listeners first
+# Forcefully kill any process occupying or trying to listen on Port 5000 (like nc or httpd)
+# We scan /proc directly to find any command lines containing "5000" or "httpd"
+# Uses substring replacement instead of command substitution for environment safety
+for cmd_file in /proc/[0-9]*/cmdline; do
+    if grep -q "5000\|httpd" "$cmd_file" 2>/dev/null; then
+        pid_dir=${cmd_file%/cmdline}
+        pid=${pid_dir#/proc/}
+        if [ -n "$pid" ] && [ "$pid" != "$$" ]; then
+            kill -9 "$pid" 2>/dev/null || true
+        fi
+    fi
+done
+
+# Clean up any previously hung httpd listeners using our PID file or killall
+if [ -f /tmp/bignumber_httpd.pid ]; then
+    cat /tmp/bignumber_httpd.pid | xargs kill -9 2>/dev/null || true
+    rm -f /tmp/bignumber_httpd.pid
+fi
 killall httpd 2>/dev/null || true
 rm -f /tmp/httpd_err
 
-$BUSYBOX httpd -p 5000 -h "${SCRIPT_DIR}/www" 2>/tmp/httpd_err
+# Start httpd in the foreground (-f) inside a background subshell
+# to cleanly capture its exact process ID in $!
+$BUSYBOX httpd -f -p 5000 -h "${SCRIPT_DIR}/www" 2>/tmp/httpd_err &
+HTTPD_PID=$!
+echo "$HTTPD_PID" > /tmp/bignumber_httpd.pid
 
 if [ -s /tmp/httpd_err ]; then
     err_msg=$(cat /tmp/httpd_err | head -n 1)
     eips 0 20 "HTTPD ERR: $err_msg"
 fi
+
+# Start background UDP broadcast discovery beacon on port 5001
+log_screen "[DEBUG] Starting UDP discovery beacon on port 5001..."
+log_screen "[DEBUG]   Wi-Fi IP : ${WLAN_IP:-None}"
+log_screen "[DEBUG]   Subnet BC: ${WLAN_BCAST:-None}"
+log_screen "[DEBUG]   USBnet IP: ${USB_IP:-None}"
+log_screen "[DEBUG]   USB BC IP: ${USB_BCAST:-None}"
+
+rm -f /tmp/beacon_err
+(
+    while true; do
+        # Broadcast to directed Wi-Fi subnet broadcast (WLAN_BCAST)
+        # We also broadcast to All Hosts Multicast (224.0.0.1) and SSDP (239.255.255.250)
+        # to ensure mesh/Starlink routers bypass filtering and route the packets cleanly
+        if [ -n "$WLAN_IP" ]; then
+            echo "KINDLE_BIGNUM_BEACON" | $BUSYBOX nc -w 1 -u "$WLAN_BCAST" 5001 >/tmp/beacon_err 2>&1
+            echo "KINDLE_BIGNUM_BEACON" | $BUSYBOX nc -w 1 -u 255.255.255.255 5001 >>/tmp/beacon_err 2>&1
+            echo "KINDLE_BIGNUM_BEACON" | $BUSYBOX nc -w 1 -u 224.0.0.1 5001 >>/tmp/beacon_err 2>&1
+            echo "KINDLE_BIGNUM_BEACON" | $BUSYBOX nc -w 1 -u 239.255.255.250 5001 >>/tmp/beacon_err 2>&1
+        fi
+        
+        # Broadcast specifically to the directed USBNetwork subnet broadcast
+        if [ -n "$USB_IP" ]; then
+            echo "KINDLE_BIGNUM_BEACON" | $BUSYBOX nc -w 1 -u "$USB_BCAST" 5001 >>/tmp/beacon_err 2>&1
+        fi
+        
+        # Display any background UDP socket or broadcast errors on screen
+        if [ -s /tmp/beacon_err ]; then
+            bcn_err=$(cat /tmp/beacon_err | head -n 1)
+            eips 0 22 "BCN ERR: $bcn_err"
+        fi
+        
+        sleep 2
+    done
+) &
+BEACON_PID=$!
 
 # 5. Flush and Wait for a physical button press (Exit Trigger)
 if command -v waitforkey >/dev/null 2>&1; then
@@ -136,6 +197,7 @@ else
 fi
 
 # 6. Graceful Recovery: Terminate network listener and restore system states
+kill -9 "$BEACON_PID" 2>/dev/null || true
 killall httpd 2>/dev/null || true
 
 # Securely close the firewall holes

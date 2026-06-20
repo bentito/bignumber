@@ -115,12 +115,16 @@ make clean
 5.  After 4 seconds, the logs clear, and the starting number displays fullscreen. The background TCP listener is now active!
 
 ### 3. Run the Workstation ScoreKeeper TUI
-1.  On your workstation terminal, launch the ScoreKeeper dashboard:
+1.  On your workstation terminal, simply launch the ScoreKeeper dashboard:
     ```bash
-    make scorekeeper KINDLE_IP=192.168.x.x
+    make scorekeeper
     ```
-    *(Replace `192.168.x.x` with the IP address printed on your Kindle screen during initialization. If using standard USB networking, you can simply run `make scorekeeper`.)*
+    *   **Auto-Discovery:** The TUI will automatically start listening on UDP port `5001` for the Kindle's active beacon, capture its IP address instantly, and connect!
+    *   **Manual Override:** If you ever want to bypass auto-discovery, you can still pass an explicit IP address:
+        ```bash
+        make scorekeeper KINDLE_IP=192.168.x.x
+        ```
 2.  The beautiful, high-contrast terminal scoreboard will open. 
-3.  Press **W** / **Up Arrow** / **Right Arrow** to increment, **S** / **Down Arrow** / **Left Arrow** to decrement, or keys **0-9** to set score digits directly! The Kindle will update fullscreen in real-time.
+3.  Press **W** / **Up Arrow** / **Right Arrow** to increment, **S** / **Down Arrow** / **Left Arrow** to decrement, or keys **0-9** to set score digits directly! The Kindle will update fullscreen in real-time over the network.
 4.  Press **Q** or **ESC** in your workstation terminal to exit the ScoreKeeper TUI.
 5.  Press any hardware key on your Kindle (Back, Home, Menu, or Page Turn) to terminate the network listener on the Kindle and cleanly return back to the KUAL menu.

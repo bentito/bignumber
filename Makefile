@@ -7,7 +7,7 @@ IMAGES_DIR = $(SRC_DIR)/images
 VENV_DIR = .venv
 VENV_PIP = $(VENV_DIR)/bin/pip
 VENV_PYTHON = $(VENV_DIR)/bin/python3
-KINDLE_IP = 192.168.15.244
+KINDLE_IP =
 KUAL_SRC = $(HOME)/Downloads/KUAL-v2.7.37-gfcb45b5-20250419/KUAL-KDK-1.0.azw2
 
 .PHONY: all images wait-mount check-crlf deploy clean help scorekeeper fix-kual full-reset
